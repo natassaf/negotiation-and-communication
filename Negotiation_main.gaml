@@ -238,7 +238,7 @@ species FestivalGuest skills:[moving, fipa]
 					participatingInAuction<-true ;
 				}else{
 					do reject_proposal message: guestMessage contents: [auctionId,"no",round] ;
-					
+	 				
 				}				
 			 }
 			 else if actionType = "start"{
@@ -538,7 +538,7 @@ species AuctionHouse skills:[fipa]{
 				numRejected<-0;
 				write "("+id +") " + "item not sold in round " +round+ " and id " +id;
 				round<-round+1;
-			}			
+ 			}			
 		}
 		if roundTimeOut!=nil{
 			roundTimeOut<-roundTimeOut-1;
@@ -547,7 +547,15 @@ species AuctionHouse skills:[fipa]{
 				roundInProgress<-false;
 			}
 		}
-
+		
+		if currentPrice <minPrice{
+			do start_conversation to: list(participatingGuests) protocol: 'fipa-propose' performative: 'cfp' contents: [id, 'stop', nil ,currentPrice, nil,location, nil] ;
+				write "("+id +") " + "item "  + itemKind + " was not sold";
+				write "*******************************************";
+				
+				do reInitialize(id);
+		}
+ 
 		
 	}
 /////////until here
@@ -556,7 +564,7 @@ species AuctionHouse skills:[fipa]{
 	aspect base {
 		rgb auctionInitiatorColor <- rgb("yellow");
 		
-		draw square(3) color: auctionInitiatorColor;
+ 		draw square(3) color: auctionInitiatorColor;
 	}
 	
 	
@@ -576,7 +584,7 @@ experiment myExperiment type:gui {
 	}
 }
 
-/// add time out
+ /// add time out
 //add interests of customer
 //+AUCTION TYPE
 // dutch auction
