@@ -251,18 +251,9 @@ species FestivalGuest skills:[moving, fipa]
 			 	do reject_proposal message: auctioneerMessage contents: [auctionId,"no",round] ;
 			 	
 			 }else if actionType = "ask"{
-			 	if bid>0 and flip(0.3){
-			 		bid<-bid;
-					write string(self) + "send last bid " + bid;
-			 	}
-			 	else if (flip(0.4) or self = soldTo){
-			 		bid<- itemPrice;
-			 		write string(self) + " send ask: " + bid;
-			 	}else {
-			 		bid<- itemPrice + rnd(10, 50);
-			 		write string(self) + " increasing price to" + bid;
-			 	}
-			
+		 		bid<- itemPrice + rnd(10, 50);
+		 		write string(self) + " increasing price to " + bid;
+		
 				do start_conversation to: list(auctioneerMessage.sender) protocol: 'fipa-propose' performative: 'cfp' contents: [auctionId, 'ask', itemType, bid, round, location] ;
 				
 			 }
@@ -450,10 +441,10 @@ species AuctionHouse skills:[fipa]{
 	list<string> candidateTypes;
 	//int numRejected;
 	float startTime;
-	//bool roundInProgress;
+	bool roundInProgress;
 	int roundTimeOut;
 	float maxBid; 
-	float lastMaxBid;
+	//float lastMaxBid;
 	FestivalGuest winner;
 	float winnings; 
 	int counter;
@@ -464,7 +455,7 @@ species AuctionHouse skills:[fipa]{
 		auctionInProgress<-false;
 		candidateTypes<- ItemTypes;
 		//numRejected<-0;
-		//roundInProgress<-false;
+		roundInProgress<-nil;
 		round<-0;
 		winnings<-0.0;
 		counter<-0;
@@ -477,8 +468,9 @@ species AuctionHouse skills:[fipa]{
 		startTime<-time;
 		minPrice <- rnd(50);
 		maxBid<-float(minPrice); 
+		//lastMaxBid<-nil;
 		currentPrice<-minPrice;
-		lastMaxBid<-nil;
+		
 		winner<-nil;
 		//maxPrice <- rnd(51, 500);
 		//priceStep <- rnd(25, 50);
@@ -490,7 +482,7 @@ species AuctionHouse skills:[fipa]{
 		roundTimeOut<-25;
 		counter<-0;
 		sameBidCounter<-0;
-		//roundInProgress<-true;
+		roundInProgress<-true;
 	}
 	
 	reflex read_participation_responses when: (length(accept_proposals) !=0) and participationClosed = false{
@@ -516,8 +508,9 @@ species AuctionHouse skills:[fipa]{
 		maxBid<-0.0;
 		//numRejected<-0;
 		startTime<-nil;
-		//roundInProgress<-false;	
-		lastMaxBid<-nil;
+		roundInProgress<-nil;	
+		
+		//lastMaxBid<-nil;
 	}
 	
 	reflex close_participation when: time= startTime+10 {
@@ -527,7 +520,7 @@ species AuctionHouse skills:[fipa]{
 		if participatingGuests=[]{
 			do reInitialize(id);
 		}
-		//roundInProgress<-true;
+		roundInProgress<-false;
 	}
 	
 
@@ -606,33 +599,43 @@ species AuctionHouse skills:[fipa]{
 		if roundTimeOut!=nil{
 			roundTimeOut<-roundTimeOut-1;
 			if roundTimeOut=0{
-				if (lastMaxBid=maxBid){
-					if sameBidCounter=1{
+				if (maxBid!=nil){
+					//if sameBidCounter=1{
 						do start_conversation to: list(participatingGuests) protocol: 'fipa-propose' performative: 'cfp' contents: [id, 'stop', itemKind, maxBid, round,location, winner] ;
 
 						write "Auctioneer: ("+id +") " + "item "  + itemKind + " sold to " +winner;
-						winnings<-winnings + lastMaxBid;
+						winnings<- winnings + maxBid;
 						write "("+id +") " + "Winnings so far "+winnings;
 					    write "*******************************************";
 					    do reInitialize(id);
-					}
-					else{
-						do start_conversation to: list(participatingGuests) protocol: 'fipa-propose' performative: 'cfp' contents: [id, 'ask', itemKind, maxBid, round,location, winner] ;
+					    
+					//}
+					//else{
+					//	do start_conversation to: list(participatingGuests) protocol: 'fipa-propose' performative: 'cfp' contents: [id, 'ask', itemKind, maxBid, round,location, winner] ;
 						
-					}
-					write "same bid is " + sameBidCounter;
-					sameBidCounter <- sameBidCounter + 1;
-				}else{
-					lastMaxBid<-maxBid;
-					write "Auctioneer: ("+id +") " + "Current max bid: " + maxBid; 
-					do start_conversation to: list(participatingGuests) protocol: 'fipa-propose' performative: 'cfp' contents: [id, 'ask', itemKind, maxBid, round,location, winner] ;
+					//}
+					//write "same bid is " + sameBidCounter;
+					//sameBidCounter <- sameBidCounter + 1;
 				}
+				//else{
+				//	lastMaxBid<-maxBid;
+				//	write "Auctioneer: ("+id +") " + "Current max bid: " + maxBid; 
 				roundTimeOut<-25;
-				
 			}
+			
+				
+		}
+		if roundInProgress != nil and participationClosed=true{
+			if roundInProgress=false{
+				do start_conversation to: list(participatingGuests) protocol: 'fipa-propose' performative: 'cfp' contents: [id, 'ask', itemKind, currentPrice, round,location, winner] ;
+				roundInProgress<-true;
+			}				
+		}
+
+			
 			//roundInProgress<-true;
 		}
-	}
+
 	
 
 

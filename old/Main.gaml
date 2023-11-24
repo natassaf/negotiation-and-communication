@@ -20,7 +20,7 @@ global {
 	
 	// All the statements under this init scope will be computed once, at the begining of our simulation. 
 	init {
-		ItemTypes <- ["clothes", "posters"];
+		ItemTypes <- ["clothes"];
 		create FestivalGuest number:numberOfPeople;
 		create FestivalStore number:numberOfFoodStores with:(hasFood:true,hasDrinks:false);
 		create FestivalStore number:numberOfDrinkStores with:(hasFood:false,hasDrinks:true);
@@ -58,7 +58,7 @@ species FestivalGuest skills:[moving, fipa]
 	list<FestivalStore> visitedDrinkStores;
 	bool participatingInAuction;
 	string interestedFor;			
-	float bid;
+
 	
 	init{
 		participatingInAuction<-false;
@@ -69,9 +69,7 @@ species FestivalGuest skills:[moving, fipa]
 		visitedFoodStores <- [];
 		visitedDrinkStores <- [];
 		interestedFor<-ItemTypes[rnd(length(ItemTypes)-1)];		
-		interestedFor<-"clothes";
 		write "Guest " +self+ " is interested in "	+interestedFor;
-		bid<-nil;
 	}
 
 	string headedTo<-nil;
@@ -134,7 +132,7 @@ species FestivalGuest skills:[moving, fipa]
 			isThirsty<-false;
 		}
 		
-		if flip(0) and participatingInAuction=false{
+		if flip(0.05) and participatingInAuction=false{
 			isBad<-true;
 		}
 	}
@@ -199,72 +197,61 @@ species FestivalGuest skills:[moving, fipa]
 	}
 	
 	reflex evaluate_proposal when: !(empty(cfps)) {
-		loop auctioneerMessage over: cfps{
+		loop guestMessage over: cfps{
 			int auctionId;
 			float itemPrice;
 			int round;
 			point auctionLocation;
 			FestivalGuest soldTo;
-			if auctioneerMessage.contents[0]!=nil{
-				auctionId <- int(auctioneerMessage.contents[0]);
+			if guestMessage.contents[0]!=nil{
+				auctionId <- int(guestMessage.contents[0]);
 				
 			}else{
 				auctionId <-nil;
 			}
-			string actionType <- auctioneerMessage.contents[1];
-			string itemType <- auctioneerMessage.contents[2];
-			if auctioneerMessage.contents[3]!=nil{
-				itemPrice <- float(auctioneerMessage.contents[3]);
+			string actionType <- guestMessage.contents[1];
+			string itemType <- guestMessage.contents[2];
+			if guestMessage.contents[3]!=nil{
+				itemPrice <- float(guestMessage.contents[3]);
 			}
 			else{
 				itemPrice <- nil;				
 			}
-			if auctioneerMessage.contents[4]!=nil{
-				round <- int(auctioneerMessage.contents[4]);
+			if guestMessage.contents[4]!=nil{
+				round <- int(guestMessage.contents[4]);
 			}else{
 				round <- nil;
 			}
-			auctionLocation<-point(auctioneerMessage.contents[5]);
-			soldTo <- auctioneerMessage.contents[6];
+			auctionLocation<-point(guestMessage.contents[5]);
+			soldTo <- guestMessage.contents[6];
 			if actionType = "stop"{
 				if self = soldTo{
 					interestedFor<-ItemTypes[rnd(length(ItemTypes)-1)];		
 					write "Guest " +self+ " is interested in "	+interestedFor;
 				}
 				participatingInAuction<-false;
-				bid<-nil;
 			}
 			
 			if actionType = "start" and flip(0.8) and participatingInAuction=false{
 				if interestedFor=itemType {
-					write "accepted" + string(self);
-					do accept_proposal message: auctioneerMessage contents: [auctionId,"yes",round] ;
+					do accept_proposal message: guestMessage contents: [auctionId,"yes",round] ;
 					participatingInAuction<-true ;
 				}else{
-					write "rejected" + string(self);
-					
-					do reject_proposal message: auctioneerMessage contents: [auctionId,"no",round] ;
+					do reject_proposal message: guestMessage contents: [auctionId,"no",round] ;
 	 				
 				}				
 			 }
 			 else if actionType = "start"{
-			 	do reject_proposal message: auctioneerMessage contents: [auctionId,"no",round] ;
+			 	do reject_proposal message: guestMessage contents: [auctionId,"no",round] ;
 			 	
 			 }else if actionType = "ask"{
-			 	if bid>0 and flip(0.3){
-			 		bid<-bid;
-					write string(self) + "send last bid " + bid;
+			 	if flip(0.5) {
+			 		do accept_proposal message: guestMessage contents: [auctionId,"yes",round] ;
+			 		
+			 	}else{
+			 		do reject_proposal message: guestMessage contents: [auctionId,"no",round] ;
+			 		
 			 	}
-			 	else if (flip(0.4) or self = soldTo){
-			 		bid<- itemPrice;
-			 		write string(self) + " send ask: " + bid;
-			 	}else {
-			 		bid<- itemPrice + rnd(10, 50);
-			 		write string(self) + " increasing price to" + bid;
-			 	}
-			
-				do start_conversation to: list(auctioneerMessage.sender) protocol: 'fipa-propose' performative: 'cfp' contents: [auctionId, 'ask', itemType, bid, round, location] ;
-				
 			 }
 			 
 				 
@@ -438,37 +425,30 @@ species SecurityGuard skills:[moving]
 species AuctionHouse skills:[fipa]{
 	string  auctionType;
 	string itemKind;
-	//int maxPrice;
+	int maxPrice;
 	int minPrice;
 	int currentPrice;
 	int round;
-	//int priceStep;
+	int priceStep;
 	list participatingGuests;
 	bool auctionInProgress;
 	bool participationClosed;
 	int id;
 	list<string> candidateTypes;
-	//int numRejected;
+	list<message> acceptedProposals;
+	int numRejected;
 	float startTime;
-	//bool roundInProgress;
+	bool roundInProgress;
 	int roundTimeOut;
-	float maxBid; 
-	float lastMaxBid;
-	FestivalGuest winner;
-	float winnings; 
-	int counter;
-	int sameBidCounter;
+
 	
 	init{
 		participatingGuests <- [];
 		auctionInProgress<-false;
 		candidateTypes<- ItemTypes;
-		//numRejected<-0;
-		//roundInProgress<-false;
+		numRejected<-0;
+		roundInProgress<-false;
 		round<-0;
-		winnings<-0.0;
-		counter<-0;
-
 	}
 	
 	
@@ -476,48 +456,38 @@ species AuctionHouse skills:[fipa]{
 		auctionInProgress<-true;
 		startTime<-time;
 		minPrice <- rnd(50);
-		maxBid<-float(minPrice); 
-		currentPrice<-minPrice;
-		lastMaxBid<-nil;
-		winner<-nil;
-		//maxPrice <- rnd(51, 500);
-		//priceStep <- rnd(25, 50);
+		maxPrice <- rnd(51, 500);
+		priceStep <- rnd(25, 50);
+		currentPrice<-maxPrice;
 		itemKind <- candidateTypes[rnd(length(candidateTypes)-1)];
-		itemKind<- "clothes";
-		do start_conversation to: list(FestivalGuest) protocol: 'fipa-propose' performative: 'cfp' contents: [id, 'start', itemKind, currentPrice,round,location, winner] ;
-		write "("+id +") " + "Starting auction for " + itemKind + "with price" + minPrice;
+		do start_conversation to: list(FestivalGuest) protocol: 'fipa-propose' performative: 'cfp' contents: [id, 'start', itemKind, currentPrice,round,location, nil] ;
+		write "("+id +") " + "Starting auction for " + itemKind;
 		round<-	round+1;
 		roundTimeOut<-25;
-		counter<-0;
-		sameBidCounter<-0;
-		//roundInProgress<-true;
 	}
 	
 	reflex read_participation_responses when: (length(accept_proposals) !=0) and participationClosed = false{
 		loop acceptMessage over: accept_proposals{
 			if not (participatingGuests contains acceptMessage.sender) {
-				write "("+id +") " +"accepted" + string(acceptMessage.sender);
-				
 				participatingGuests <- participatingGuests + acceptMessage.sender;
 				}
 		}
 	}
 	
-	action reInitialize(int auctionid){
+	action reInitialize(int id){
 		auctionType<-nil;
 		itemKind<-nil;
-		//maxPrice<-nil;
+		maxPrice<-nil;
 		minPrice<-nil;
 		currentPrice<-nil;
 		round<-nil;
 		participatingGuests<-[];
 		auctionInProgress<-false;
 		participationClosed<-false;
-		maxBid<-0.0;
-		//numRejected<-0;
+		acceptedProposals<-[];
+		numRejected<-0;
 		startTime<-nil;
-		//roundInProgress<-false;	
-		lastMaxBid<-nil;
+		roundInProgress<-false;	
 	}
 	
 	reflex close_participation when: time= startTime+10 {
@@ -527,152 +497,68 @@ species AuctionHouse skills:[fipa]{
 		if participatingGuests=[]{
 			do reInitialize(id);
 		}
-		//roundInProgress<-true;
 	}
 	
 
-//	reflex send_ask when:participationClosed=true and roundInProgress=false and participatingGuests!=[]{
-//		write "("+id +") " + "send ask in round: "+round ;
-//		do start_conversation to: list(participatingGuests) protocol: 'fipa-propose' performative: 'cfp' contents: [id, 'ask', itemKind, currentPrice, round,location, nil] ;
-//		roundInProgress<-true;
-//		
-//	}
+	reflex send_ask when:participationClosed=true and roundInProgress=false and participatingGuests!=[]{
+		write "("+id +") " + "send ask in round: "+round ;
+		do start_conversation to: list(participatingGuests) protocol: 'fipa-propose' performative: 'cfp' contents: [id, 'ask', itemKind, currentPrice, round,location, nil] ;
+		roundInProgress<-true;
+		
+	}
 	
-//	reflex gather_responses when: ((participationClosed=true and roundInProgress=true and participatingGuests!=[]) and (accept_proposals!=[] or reject_proposals!=[])){
-//		loop accepted over:accept_proposals{
-//			if (accepted.contents[0]=id and int(accepted.contents[2])=round){
-//				acceptedProposals<-acceptedProposals+accepted;
-//			}
-//		}
-//		loop rejected over:reject_proposals{
-//			if (rejected.contents[0]=id and int(rejected.contents[2])=round){
-//				numRejected<-numRejected+1;
-//			}
-//		}
-//	}
-
-
-	reflex gather_responses when: ((participationClosed=true and participatingGuests!=[]) and (cfps!=[] )){
-		//loop counter from: 0 to: (length(cfps)-1){
-		loop cfpMessage over: cfps{
-			//message cfpMessage<-cfps[counter];
-			if counter=0{
-				maxBid<-float(cfpMessage.contents[3]); 
-				winner<-cfpMessage.sender;
-				counter<-counter+1;
-			}
-			
-			
-			string content <- cfpMessage.contents;
-			int auctionId;
-			float itemPrice;
-			
-			point auctionLocation;
-			FestivalGuest soldTo;
-			if cfpMessage.contents[0]!=nil{
-				auctionId <- int(cfpMessage.contents[0]);
-				
-			}else{
-				auctionId <-nil;
-			}
-			string actionType <- cfpMessage.contents[1];
-			string itemType <- cfpMessage.contents[2];
-			if cfpMessage.contents[3]!=nil{
-				itemPrice <- float(cfpMessage.contents[3]);
-			}
-			else{
-				itemPrice <- nil;				
-			}
-			
-			int bidingRound;
-			if cfpMessage.contents[4]!=nil{
-				bidingRound <- int(cfpMessage.contents[4]);
-			}else{
-				bidingRound <- nil;
-			}
-			auctionLocation<-point(cfpMessage.contents[5]);
-			
-			if round=bidingRound and itemPrice>maxBid{
-				maxBid<-itemPrice;
-				winner<-cfpMessage.sender;
+	reflex gather_responses when: ((participationClosed=true and roundInProgress=true and participatingGuests!=[]) and (accept_proposals!=[] or reject_proposals!=[])){
+		loop accepted over:accept_proposals{
+			if (accepted.contents[0]=id and int(accepted.contents[2])=round){
+				acceptedProposals<-acceptedProposals+accepted;
 			}
 		}
-		
+		loop rejected over:reject_proposals{
+			if (rejected.contents[0]=id and int(rejected.contents[2])=round){
+				numRejected<-numRejected+1;
+			}
+		}
 	}
-
+	//add time OUT 
+//////////changed here for round time out
 
 	reflex change_round{
-		
+		if ((length(acceptedProposals)+numRejected)= length(participatingGuests) and participatingGuests !=[]){
+			if length(acceptedProposals)>0{	
+				string soldTo <- acceptedProposals[0].sender;
+				do start_conversation to: list(participatingGuests) protocol: 'fipa-propose' performative: 'cfp' contents: [id, 'stop', nil ,currentPrice, nil,location, soldTo] ;
+				write "("+id +") " + "item "  + itemKind + " sold to " +acceptedProposals[0].sender;
+				write "*******************************************";
+				
+				do reInitialize(id);
+			}
+			else{
+				currentPrice<-currentPrice-priceStep;
+				acceptedProposals<-[];
+				numRejected<-0;
+				write "("+id +") " + "item not sold in round " +round+ " and id " +id;
+				round<-round+1;
+ 			}			
+		}
 		if roundTimeOut!=nil{
 			roundTimeOut<-roundTimeOut-1;
 			if roundTimeOut=0{
-				if (lastMaxBid=maxBid){
-					if sameBidCounter=1{
-						do start_conversation to: list(participatingGuests) protocol: 'fipa-propose' performative: 'cfp' contents: [id, 'stop', itemKind, maxBid, round,location, winner] ;
-
-						write "Auctioneer: ("+id +") " + "item "  + itemKind + " sold to " +winner;
-						winnings<-winnings + lastMaxBid;
-						write "("+id +") " + "Winnings so far "+winnings;
-					    write "*******************************************";
-					    do reInitialize(id);
-					}
-					else{
-						do start_conversation to: list(participatingGuests) protocol: 'fipa-propose' performative: 'cfp' contents: [id, 'ask', itemKind, maxBid, round,location, winner] ;
-						
-					}
-					write "same bid is " + sameBidCounter;
-					sameBidCounter <- sameBidCounter + 1;
-				}else{
-					lastMaxBid<-maxBid;
-					write "Auctioneer: ("+id +") " + "Current max bid: " + maxBid; 
-					do start_conversation to: list(participatingGuests) protocol: 'fipa-propose' performative: 'cfp' contents: [id, 'ask', itemKind, maxBid, round,location, winner] ;
-				}
 				roundTimeOut<-25;
-				
+				roundInProgress<-false;
 			}
-			//roundInProgress<-true;
 		}
+		
+		if currentPrice <minPrice{
+			do start_conversation to: list(participatingGuests) protocol: 'fipa-propose' performative: 'cfp' contents: [id, 'stop', nil ,currentPrice, nil,location, nil] ;
+				write "("+id +") " + "item "  + itemKind + " was not sold";
+				write "*******************************************";
+				
+				do reInitialize(id);
+		}
+ 
+		
 	}
-	
-
-
-//	reflex change_round{
-//		if ((length(acceptedProposals)+numRejected)= length(participatingGuests) and participatingGuests !=[]){
-//			if length(acceptedProposals)>0{	
-//				string soldTo <- acceptedProposals[0].sender;
-//				do start_conversation to: list(participatingGuests) protocol: 'fipa-propose' performative: 'cfp' contents: [id, 'stop', nil ,currentPrice, nil,location, soldTo] ;
-//				write "("+id +") " + "item "  + itemKind + " sold to " +acceptedProposals[0].sender;
-//				write "*******************************************";
-//				
-//				do reInitialize(id);
-//			}
-//			else{
-//				currentPrice<-currentPrice-priceStep;
-//				acceptedProposals<-[];
-//				numRejected<-0;
-//				write "("+id +") " + "item not sold in round " +round+ " and id " +id;
-//				round<-round+1;
-// 			}			
-//		}
-//		if roundTimeOut!=nil{
-//			roundTimeOut<-roundTimeOut-1;
-//			if roundTimeOut=0{
-//				roundTimeOut<-25;
-//				roundInProgress<-false;
-//			}
-//		}
-//		
-//		if currentPrice <minPrice{
-//			do start_conversation to: list(participatingGuests) protocol: 'fipa-propose' performative: 'cfp' contents: [id, 'stop', nil ,currentPrice, nil,location, nil] ;
-//				write "("+id +") " + "item "  + itemKind + " was not sold";
-//				write "*******************************************";
-//				
-//				do reInitialize(id);
-//		}
-// 
-//		
-//	}
-
+/////////until here
 
 	
 	aspect base {
