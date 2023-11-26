@@ -26,7 +26,7 @@ global {
 		create FestivalStore number:numberOfDrinkStores with:(hasFood:false,hasDrinks:true);
 		create InformationCenter number:numberOfCenters with:(targetPoint:{10,10,10});
 		
-		create SecurityGuard number:1;
+		//create SecurityGuard number:1;
 		
 		create AuctionHouse number:1 with: (id:1) ;
 		create AuctionHouse number:1 with: (id:2) ;
@@ -132,7 +132,7 @@ species FestivalGuest skills:[moving, fipa]
 			isThirsty<-false;
 		}
 		
-		if flip(0.05) and participatingInAuction=false{
+		if flip(0.00) and participatingInAuction=false{
 			isBad<-true;
 		}
 	}
@@ -256,7 +256,6 @@ species FestivalGuest skills:[moving, fipa]
 			 
 				 
 		}
-//		do accept_proposal message: proposalFromInitiator contents: ['OK! It \'s hot today!'] ;
 	}
 	
 	
@@ -376,7 +375,6 @@ species InformationCenter
 		}
 	}
 	
-	
 
 	aspect base {
 		rgb infoCenterColor <- rgb("magenta");
@@ -412,7 +410,6 @@ species SecurityGuard skills:[moving]
 			myself.targetPoint<-nil;
 		}
 	}
-	
 
 	
 	aspect base {
@@ -423,7 +420,7 @@ species SecurityGuard skills:[moving]
 }
 
 species AuctionHouse skills:[fipa]{
-	string  auctionType;
+	//string  auctionType;
 	string itemKind;
 	int maxPrice;
 	int minPrice;
@@ -441,6 +438,16 @@ species AuctionHouse skills:[fipa]{
 	bool roundInProgress;
 	int roundTimeOut;
 	float winnings;
+	
+	int counterOfAuctions <-0;
+	
+	reflex printwinnings{
+		if (counterOfAuctions=100){
+			write "-----------------------------------------";
+			write "Winnings after 100 auctions: " + winnings;
+			do die;
+		}
+	}
 
 	
 	init{
@@ -455,6 +462,7 @@ species AuctionHouse skills:[fipa]{
 	
 	
 	reflex start_auction when: auctionInProgress=false {
+		counterOfAuctions<-counterOfAuctions+1;
 		auctionInProgress<-true;
 		startTime<-time;
 		minPrice <- rnd(50);
@@ -477,7 +485,7 @@ species AuctionHouse skills:[fipa]{
 	}
 	
 	action reInitialize(int auctionid){
-		auctionType<-nil;
+		//auctionType<-nil;
 		itemKind<-nil;
 		maxPrice<-nil;
 		minPrice<-nil;
@@ -521,8 +529,6 @@ species AuctionHouse skills:[fipa]{
 			}
 		}
 	}
-	//add time OUT 
-//////////changed here for round time out
 
 	reflex change_round{
 		if ((length(acceptedProposals)+numRejected)= length(participatingGuests) and participatingGuests !=[]){
@@ -562,7 +568,6 @@ species AuctionHouse skills:[fipa]{
  
 		
 	}
-/////////until here
 
 	
 	aspect base {
@@ -581,11 +586,10 @@ experiment myExperiment type:gui {
 			species FestivalGuest aspect:base;
 			species FestivalStore aspect:base;
 			species InformationCenter aspect:base;
-			species SecurityGuard aspect:base;
+			//species SecurityGuard aspect:base;
 			species AuctionHouse aspect:base;
 			
 		}
 	}
 }
 
- /// add the navigation to the auction house for the winner

@@ -530,9 +530,10 @@ species AuctionHouse skills:[fipa]{
 				string soldTo <- acceptedProposals[0].sender;
 				do start_conversation to: list(participatingGuests) protocol: 'fipa-propose' performative: 'cfp' contents: [id, 'stop', nil ,currentPrice, nil,location, soldTo] ;
 				write "("+id +") " + "item "  + itemKind + " sold to " +acceptedProposals[0].sender;
-				write "*******************************************";
+				
 				winnings<-winnings+currentPrice;
 				write "("+id +") " + "Winnings so far "+winnings;
+				write "*******************************************";
 				do reInitialize(id);
 			}
 			else{
